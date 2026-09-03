@@ -3,9 +3,9 @@ import type { ErrorRequestHandler } from "express";
 import cors from "cors";
 import multer from "multer";
 import { unlink } from "node:fs/promises";
-import { extname, basename } from "node:path";
 import { pool } from "./db.js";
 import { upload, UploadValidationError } from "./upload.js";
+import { processDocument } from "./processDocument.js";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -13,6 +13,7 @@ const port = Number(process.env.PORT || 3000);
 app.use(cors());
 app.use(express.json());
 
+// API sağlık kontrolü
 app.get("/api/health", (_request, response) => {
   response.json({
     status: "ok",
@@ -20,6 +21,7 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
+// Veritabanı bağlantı kontrolü
 app.get("/api/health/db", async (_request, response) => {
   try {
     const result = await pool.query(
@@ -40,6 +42,7 @@ app.get("/api/health/db", async (_request, response) => {
   }
 });
 
+// Dosya yükleme, metin çıkarma ve parçaları kaydetme
 app.post(
   "/api/documents",
   upload.single("file"),
@@ -54,34 +57,15 @@ app.post(
     }
 
     try {
-      if (file.size === 0) {
-        throw new UploadValidationError("Boş dosya yüklenemez.");
-      }
-
-      const extension = extname(file.filename);
-      const documentId = basename(file.filename, extension);
-      const fileType = extension.slice(1);
-
-      const result = await pool.query(
-        `INSERT INTO documents
-          (id, filename, file_type, file_size)
-         VALUES ($1, $2, $3, $4)
-         RETURNING
-          id, filename, file_type, file_size, chunk_count, created_at`,
-        [
-          documentId,
-          file.originalname,
-          fileType,
-          file.size,
-        ]
-      );
+      const document = await processDocument(file);
 
       response.status(201).json({
-        message: "Dosya başarıyla yüklendi.",
-        document: result.rows[0],
+        message:
+          "Dosya yüklendi, metin çıkarıldı ve parçalar kaydedildi.",
+        document,
       });
     } catch (error) {
-      // Veritabanına kaydedilemeyen dosyayı diskte bırakma.
+      // İşlenemeyen dosyayı diskte bırakma.
       try {
         await unlink(file.path);
       } catch (cleanupError) {
@@ -93,6 +77,7 @@ app.post(
   }
 );
 
+// Merkezi hata yönetimi
 const errorHandler: ErrorRequestHandler = (
   error,
   _request,
@@ -108,11 +93,14 @@ const errorHandler: ErrorRequestHandler = (
     response
       .status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400)
       .json({ message });
+
     return;
   }
 
   if (error instanceof UploadValidationError) {
-    response.status(400).json({ message: error.message });
+    response.status(400).json({
+      message: error.message,
+    });
     return;
   }
 
@@ -125,6 +113,9 @@ const errorHandler: ErrorRequestHandler = (
 
 app.use(errorHandler);
 
+// Sunucuyu başlat
 app.listen(port, () => {
-  console.log(`AskDocs API http://localhost:${port} adresinde çalışıyor`);
+  console.log(
+    `AskDocs API http://localhost:${port} adresinde çalışıyor`
+  );
 });
