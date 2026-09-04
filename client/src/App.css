@@ -456,3 +456,35 @@
     margin-left: 62px;
   }
 }
+.document-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.details-button {
+  padding: 8px 12px;
+  border: 1px solid #cfd0fa;
+  border-radius: 9px;
+  color: #5152c9;
+  background: #f4f4ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.details-button:hover {
+  background: #e9e9ff;
+}
+
+@media (max-width: 800px) {
+  .document-actions {
+    width: 100%;
+    margin-left: 62px;
+  }
+
+  .document-actions .delete-button {
+    margin-left: 0;
+  }
+}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import './App.css'
+import DocumentDetails from './DocumentDetails'
 
 const API_URL =
   import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3001'
@@ -54,6 +55,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [detailsDocumentId, setDetailsDocumentId] =
+    useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -65,6 +68,7 @@ function App() {
     async function loadDocuments() {
       try {
         const response = await fetch(`${API_URL}/api/documents`)
+
         const data = (await response.json()) as DocumentsResponse &
           MessageResponse
 
@@ -148,6 +152,7 @@ function App() {
       setMessage(
         data.message ?? 'Dosya başarıyla yüklendi.'
       )
+
       setSelectedFile(null)
 
       if (fileInputRef.current) {
@@ -236,6 +241,7 @@ function App() {
         <div>
           <p className="eyebrow">DOKÜMAN YÖNETİMİ</p>
           <h1>Bilgi kaynağını oluştur</h1>
+
           <p className="heading-description">
             Dokümanlarını yükle, metinlerini parçalara ayır ve
             soru-cevap sistemi için hazırla.
@@ -278,7 +284,9 @@ function App() {
               ) : (
                 <>
                   <strong>Dosya seçmek için tıklayın</strong>
-                  <span>PDF, DOCX veya TXT · En fazla 20 MB</span>
+                  <span>
+                    PDF, DOCX veya TXT · En fazla 20 MB
+                  </span>
                 </>
               )}
             </label>
@@ -296,6 +304,7 @@ function App() {
 
           <div className="process-info">
             <span>1</span>
+
             <p>
               <strong>Metin çıkarılır</strong>
               <small>Dosyanın içeriği okunur.</small>
@@ -304,17 +313,23 @@ function App() {
 
           <div className="process-info">
             <span>2</span>
+
             <p>
               <strong>Parçalara ayrılır</strong>
-              <small>İçerik aranabilir chunk’lara dönüşür.</small>
+              <small>
+                İçerik aranabilir chunk’lara dönüşür.
+              </small>
             </p>
           </div>
 
           <div className="process-info">
             <span>3</span>
+
             <p>
               <strong>Veritabanına kaydedilir</strong>
-              <small>Kaynak ve sayfa bilgileri korunur.</small>
+              <small>
+                Kaynak ve sayfa bilgileri korunur.
+              </small>
             </p>
           </div>
         </article>
@@ -333,11 +348,15 @@ function App() {
 
           <div className="notice-area" aria-live="polite">
             {message && (
-              <p className="notice success-notice">{message}</p>
+              <p className="notice success-notice">
+                {message}
+              </p>
             )}
 
             {error && (
-              <p className="notice error-notice">{error}</p>
+              <p className="notice error-notice">
+                {error}
+              </p>
             )}
           </div>
 
@@ -350,6 +369,7 @@ function App() {
             <div className="empty-state">
               <span className="empty-icon">□</span>
               <h3>Henüz doküman yok</h3>
+
               <p>
                 İlk dokümanınızı soldaki alandan yükleyin.
               </p>
@@ -357,7 +377,10 @@ function App() {
           ) : (
             <div className="document-list">
               {documents.map((document) => (
-                <div className="document-item" key={document.id}>
+                <div
+                  className="document-item"
+                  key={document.id}
+                >
                   <div
                     className={`file-icon ${document.file_type}`}
                   >
@@ -378,24 +401,45 @@ function App() {
                     </span>
                   </div>
 
-                  <button
-                    className="delete-button"
-                    type="button"
-                    disabled={deletingId === document.id}
-                    onClick={() => {
-                      void handleDelete(document)
-                    }}
-                  >
-                    {deletingId === document.id
-                      ? 'Siliniyor...'
-                      : 'Sil'}
-                  </button>
+                  <div className="document-actions">
+                    <button
+                      className="details-button"
+                      type="button"
+                      onClick={() => {
+                        setDetailsDocumentId(document.id)
+                      }}
+                    >
+                      Detay
+                    </button>
+
+                    <button
+                      className="delete-button"
+                      type="button"
+                      disabled={deletingId === document.id}
+                      onClick={() => {
+                        void handleDelete(document)
+                      }}
+                    >
+                      {deletingId === document.id
+                        ? 'Siliniyor...'
+                        : 'Sil'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </article>
       </section>
+
+      {detailsDocumentId && (
+        <DocumentDetails
+          documentId={detailsDocumentId}
+          onClose={() => {
+            setDetailsDocumentId(null)
+          }}
+        />
+      )}
     </main>
   )
 }
