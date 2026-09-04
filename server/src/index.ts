@@ -69,7 +69,67 @@ app.get("/api/documents", async (_request, response, next) => {
     next(error);
   }
 });
+// Tek bir dokümanın bilgilerini ve parçalarını getir
+app.get(
+  "/api/documents/:id",
+  async (request, response, next) => {
+    const documentId = request.params.id;
 
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    if (!uuidPattern.test(documentId)) {
+      response.status(400).json({
+        message: "Geçersiz doküman kimliği.",
+      });
+      return;
+    }
+
+    try {
+      const documentResult = await pool.query(
+        `SELECT
+          id,
+          filename,
+          file_type,
+          file_size,
+          chunk_count,
+          created_at
+         FROM documents
+         WHERE id = $1`,
+        [documentId]
+      );
+
+      const document = documentResult.rows[0];
+
+      if (!document) {
+        response.status(404).json({
+          message: "Doküman bulunamadı.",
+        });
+        return;
+      }
+
+      const chunksResult = await pool.query(
+        `SELECT
+          id,
+          chunk_index,
+          content,
+          source_page,
+          created_at
+         FROM document_chunks
+         WHERE document_id = $1
+         ORDER BY chunk_index`,
+        [documentId]
+      );
+
+      response.json({
+        document,
+        chunks: chunksResult.rows,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 // Dosya yükleme, metin çıkarma ve parçaları kaydetme
 app.post(
   "/api/documents",
