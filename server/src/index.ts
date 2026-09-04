@@ -3,8 +3,13 @@ import type { ErrorRequestHandler } from "express";
 import cors from "cors";
 import multer from "multer";
 import { unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { pool } from "./db.js";
-import { upload, UploadValidationError } from "./upload.js";
+import {
+  upload,
+  uploadDirectory,
+  UploadValidationError,
+} from "./upload.js";
 import { processDocument } from "./processDocument.js";
 
 const app = express();
@@ -42,6 +47,29 @@ app.get("/api/health/db", async (_request, response) => {
   }
 });
 
+// Yüklenen dokümanları listele
+app.get("/api/documents", async (_request, response, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        filename,
+        file_type,
+        file_size,
+        chunk_count,
+        created_at
+       FROM documents
+       ORDER BY created_at DESC`
+    );
+
+    response.json({
+      documents: result.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Dosya yükleme, metin çıkarma ve parçaları kaydetme
 app.post(
   "/api/documents",
@@ -65,13 +93,76 @@ app.post(
         document,
       });
     } catch (error) {
-      // İşlenemeyen dosyayı diskte bırakma.
+      // İşlenemeyen dosyayı diskte bırakma
       try {
         await unlink(file.path);
       } catch (cleanupError) {
         console.error("Dosya temizleme hatası:", cleanupError);
       }
 
+      next(error);
+    }
+  }
+);
+
+// Dokümanı, parçalarını ve yüklenen dosyayı sil
+app.delete(
+  "/api/documents/:id",
+  async (request, response, next) => {
+    const documentId = request.params.id;
+
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    if (!uuidPattern.test(documentId)) {
+      response.status(400).json({
+        message: "Geçersiz doküman kimliği.",
+      });
+      return;
+    }
+
+    try {
+      const result = await pool.query(
+        `DELETE FROM documents
+         WHERE id = $1
+         RETURNING id, filename, file_type`,
+        [documentId]
+      );
+
+      const document = result.rows[0];
+
+      if (!document) {
+        response.status(404).json({
+          message: "Doküman bulunamadı.",
+        });
+        return;
+      }
+
+      // Foreign key üzerindeki ON DELETE CASCADE sayesinde
+      // dokümana ait chunk kayıtları otomatik silinir.
+      const storedFilePath = join(
+        uploadDirectory,
+        `${document.id}.${document.file_type}`
+      );
+
+      try {
+        await unlink(storedFilePath);
+      } catch (fileError) {
+        const errorCode = (fileError as NodeJS.ErrnoException).code;
+
+        if (errorCode !== "ENOENT") {
+          console.error("Yüklenen dosyayı silme hatası:", fileError);
+        }
+      }
+
+      response.json({
+        message: "Doküman ve ilgili parçalar başarıyla silindi.",
+        document: {
+          id: document.id,
+          filename: document.filename,
+        },
+      });
+    } catch (error) {
       next(error);
     }
   }

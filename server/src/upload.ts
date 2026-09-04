@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const uploadDirectory = fileURLToPath(
+export const uploadDirectory = fileURLToPath(
   new URL("../uploads/", import.meta.url)
 );
 
