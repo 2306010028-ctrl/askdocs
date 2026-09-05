@@ -12,7 +12,7 @@ import {
 } from "./upload.js";
 import { processDocument } from "./processDocument.js";
 
-const app = express();
+export const app = express();
 const port = Number(process.env.PORT || 3000);
 
 app.use(cors());
@@ -265,8 +265,10 @@ const errorHandler: ErrorRequestHandler = (
 app.use(errorHandler);
 
 // Sunucuyu başlat
-app.listen(port, () => {
-  console.log(
-    `AskDocs API http://localhost:${port} adresinde çalışıyor`
-  );
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(port, () => {
+    console.log(
+      `AskDocs API http://localhost:${port} adresinde çalışıyor`
+    );
+  });
+}
