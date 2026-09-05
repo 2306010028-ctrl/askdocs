@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import './App.css'
 import DocumentDetails from './DocumentDetails'
+import ApiStatus from './ApiStatus'
+import ChatPanel from './ChatPanel'
 
 const API_URL =
   import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3001'
@@ -231,10 +233,7 @@ function App() {
           </div>
         </div>
 
-        <div className="api-status">
-          <span className="status-dot" />
-          API bağlantısı
-        </div>
+        <ApiStatus />
       </header>
 
       <section className="page-heading">
@@ -432,6 +431,7 @@ function App() {
         </article>
       </section>
 
+      <ChatPanel />
       {detailsDocumentId && (
         <DocumentDetails
           documentId={detailsDocumentId}

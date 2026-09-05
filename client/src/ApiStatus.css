@@ -1,0 +1,55 @@
+.api-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.api-status-checking {
+  color: #687386;
+  background: #eef0f4;
+}
+
+.api-status-checking .status-dot {
+  background: #98a2b3;
+  animation: status-pulse 1.2s infinite;
+}
+
+.api-status-connected {
+  color: #137a4b;
+  background: #eaf8f1;
+}
+
+.api-status-connected .status-dot {
+  background: #21b573;
+  box-shadow: 0 0 0 4px rgba(33, 181, 115, 0.12);
+}
+
+.api-status-disconnected {
+  color: #b42318;
+  background: #fff0ee;
+}
+
+.api-status-disconnected .status-dot {
+  background: #e05252;
+  box-shadow: 0 0 0 4px rgba(224, 82, 82, 0.12);
+}
+
+@keyframes status-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
