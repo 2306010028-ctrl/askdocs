@@ -1,0 +1,50 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build and test AskDocs
+    runs-on: ubuntu-latest
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: askdocs_test
+      DB_USER: postgres
+      DB_PASSWORD: test_password
+      PORT: 3001
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+
+      - name: Run backend tests
+        run: npm --prefix server run test
+
+      - name: Build backend
+        run: npm --prefix server run build
+
+      - name: Install frontend dependencies
+        run: npm --prefix client ci
+
+      - name: Build frontend
+        run: npm --prefix client run build
