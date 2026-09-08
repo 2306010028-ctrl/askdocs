@@ -41,4 +41,26 @@ describe("AskDocs API", () => {
       "Lütfen bir dosya seçin."
     );
   });
+
+  it("POST /api/questions kısa soruyu reddeder", async () => {
+    const response = await request(app)
+      .post("/api/questions")
+      .send({ question: "a" })
+      .expect(400);
+
+    expect(response.body.message).toBe(
+      "Soru en az 3 karakter olmalıdır."
+    );
+  });
+
+  it("POST /api/questions uzun soruyu reddeder", async () => {
+    const response = await request(app)
+      .post("/api/questions")
+      .send({ question: "a".repeat(1001) })
+      .expect(400);
+
+    expect(response.body.message).toBe(
+      "Soru en fazla 1000 karakter olabilir."
+    );
+  });
 });
