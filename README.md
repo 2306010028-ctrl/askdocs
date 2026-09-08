@@ -1,8 +1,6 @@
 # AskDocs
 
-AskDocs; PDF, DOCX ve TXT belgelerini yükleyen, metinlerini çıkaran, parçalara ayıran ve dokümanlar üzerinden soru-cevap sistemi oluşturmayı amaçlayan bir web uygulamasıdır.
-
-> MiniMax yapay zekâ entegrasyonu henüz geliştirme aşamasındadır. Belge yönetimi, metin çıkarma, parçalara ayırma ve doküman detaylarını görüntüleme özellikleri çalışmaktadır.
+AskDocs; PDF, DOCX ve TXT belgelerini yükleyen, metinlerini çıkarıp parçalara ayıran ve MiniMax M3 kullanarak belgeler üzerinden kaynaklı cevaplar üreten bir web uygulamasıdır.
 
 ## Özellikler
 
@@ -10,15 +8,20 @@ AskDocs; PDF, DOCX ve TXT belgelerini yükleyen, metinlerini çıkaran, parçala
 - 20 MB dosya boyutu sınırı
 - Dosya türü ve içerik doğrulama
 - Belgelerden metin çıkarma
-- Metni küçük parçalara ayırma
+- Metni aranabilir parçalara ayırma
 - Belgeleri ve metin parçalarını PostgreSQL’de saklama
 - Yüklenen belgeleri listeleme
 - Belge detaylarını ve kaynak sayfalarını görüntüleme
 - Belgeyi, parçalarını ve fiziksel dosyasını silme
-- Backend bağlantı durumunu canlı görüntüleme
-- MiniMax entegrasyonu için hazırlanmış sohbet arayüzü
+- Backend, PostgreSQL ve MiniMax bağlantı kontrolü
+- MiniMax M3 ile dokümanlara soru sorma
+- Cevaplarda belge adı ve sayfa numarası gösterme
+- Soru, cevap, yanıt süresi ve token kullanımını kaydetme
+- Son 20 soru-cevap kaydını görüntüleme
+- Yeni cevap oluşturulduğunda geçmişi otomatik yenileme
 - Vitest ve Supertest ile backend API testleri
-- pgvector desteği
+- GitHub Actions ile otomatik build ve test
+- pgvector veritabanı desteği
 
 ## Kullanılan Teknolojiler
 
@@ -36,6 +39,8 @@ AskDocs; PDF, DOCX ve TXT belgelerini yükleyen, metinlerini çıkaran, parçala
 - TypeScript
 - PostgreSQL
 - pgvector
+- MiniMax M3
+- Anthropic uyumlu MiniMax API
 - Multer
 - Mammoth
 - pdf-parse
@@ -46,12 +51,16 @@ AskDocs; PDF, DOCX ve TXT belgelerini yükleyen, metinlerini çıkaran, parçala
 
 ```text
 askdocs/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── client/
 │   └── src/
-│       ├── App.tsx
 │       ├── ApiStatus.tsx
+│       ├── App.tsx
 │       ├── ChatPanel.tsx
-│       └── DocumentDetails.tsx
+│       ├── DocumentDetails.tsx
+│       └── QueryHistory.tsx
 ├── server/
 │   ├── sql/
 │   │   └── 001_initial_schema.sql
@@ -59,8 +68,9 @@ askdocs/
 │   │   ├── chunkText.ts
 │   │   ├── db.ts
 │   │   ├── extractText.ts
-│   │   ├── index.ts
 │   │   ├── index.test.ts
+│   │   ├── index.ts
+│   │   ├── minimax.ts
 │   │   ├── processDocument.ts
 │   │   └── upload.ts
 │   └── uploads/
@@ -76,6 +86,8 @@ Projeyi çalıştırmak için aşağıdakiler gereklidir:
 - PostgreSQL 17
 - pgvector eklentisi
 - Git
+- MiniMax Token Plan veya kullanılabilir API bakiyesi
+- MiniMax Subscription Key
 
 ## Kurulum
 
@@ -112,13 +124,21 @@ Migration dosyasını çalıştırın:
 psql -U postgres -d askdocs -v ON_ERROR_STOP=1 -f server/sql/001_initial_schema.sql
 ```
 
+Windows PowerShell üzerinde gerekirse şu yolu kullanabilirsiniz:
+
+```powershell
+psql -U postgres -d askdocs -v ON_ERROR_STOP=1 -f server\sql\001_initial_schema.sql
+```
+
 Migration aşağıdaki tabloları oluşturur:
 
 - `documents`
 - `document_chunks`
 - `query_logs`
 
-Ayrıca `vector` eklentisini ve gerekli indeksleri hazırlar.
+Ayrıca `vector` eklentisini ve gerekli veritabanı indekslerini hazırlar.
+
+> pgvector veritabanında hazırdır. Mevcut kaynak seçimi PostgreSQL tam metin aramasıyla yapılmaktadır. Semantik vektör araması henüz etkin değildir.
 
 ## Ortam Değişkenleri
 
@@ -126,16 +146,27 @@ Ayrıca `vector` eklentisini ve gerekli indeksleri hazırlar.
 
 ```env
 PORT=3001
+
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=askdocs
 DB_USER=postgres
 DB_PASSWORD=postgres_sifreniz
+
+MINIMAX_API_KEY=minimax_subscription_key
+MINIMAX_BASE_URL=https://api.minimax.io/anthropic
+MINIMAX_MODEL=MiniMax-M3
 ```
 
-Gerçek veritabanı şifrenizi GitHub’a göndermeyin. `.env` dosyası yalnızca yerel bilgisayarda tutulmalıdır.
+`MINIMAX_API_KEY` alanına MiniMax tarafından oluşturulan Subscription Key yazılmalıdır.
 
-MiniMax entegrasyonu tamamlandığında API anahtarı da bu dosyada saklanacaktır.
+Gerçek veritabanı şifresini ve MiniMax anahtarını GitHub’a göndermeyin. `.env` dosyası yalnızca yerel bilgisayarda tutulmalıdır.
+
+Frontend farklı bir backend adresine bağlanacaksa `client/.env` dosyasında aşağıdaki değişken kullanılabilir:
+
+```env
+VITE_API_URL=http://127.0.0.1:3001
+```
 
 ## Uygulamayı Çalıştırma
 
@@ -169,12 +200,40 @@ http://localhost:5173
 |---|---|---|
 | GET | `/api/health` | Backend durumunu kontrol eder |
 | GET | `/api/health/db` | PostgreSQL bağlantısını kontrol eder |
-| GET | `/api/documents` | Belgeleri listeler |
+| GET | `/api/health/ai` | MiniMax M3 bağlantısını kontrol eder |
+| GET | `/api/documents` | Yüklenen belgeleri listeler |
 | GET | `/api/documents/:id` | Belgeyi ve metin parçalarını getirir |
-| POST | `/api/documents` | Yeni belge yükler |
+| POST | `/api/documents` | Yeni belge yükler ve işler |
 | DELETE | `/api/documents/:id` | Belgeyi ve ilgili parçaları siler |
+| POST | `/api/questions` | Belgeler üzerinden kaynaklı cevap üretir |
+| GET | `/api/queries` | Son 20 soru-cevap kaydını getirir |
 
 Belge yükleme isteğinde dosya, `file` isimli form alanıyla gönderilmelidir.
+
+### Soru sorma örneği
+
+```powershell
+$body = @{
+  question = "Bu dokümanın ana konusu nedir?"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:3001/api/questions" `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $body
+```
+
+Soru uzunluğu en az 3, en fazla 1000 karakter olmalıdır.
+
+Başarılı cevap aşağıdaki bilgileri içerir:
+
+- MiniMax tarafından üretilen cevap
+- Kullanılan model
+- Yanıt süresi
+- Token sayısı
+- Kaynak belge adı
+- Kaynak sayfa numarası
 
 ## Testler
 
@@ -186,9 +245,12 @@ npm --prefix server run test
 
 Mevcut testler şunları kontrol eder:
 
-- API sağlık endpoint’i
-- Geçersiz belge kimliği doğrulaması
+- API sağlık uç noktası
+- Geçersiz belge kimliğinin reddedilmesi
+- Geçersiz silme isteğinin reddedilmesi
 - Dosyasız yükleme isteğinin reddedilmesi
+- Çok kısa soruların reddedilmesi
+- Çok uzun soruların reddedilmesi
 - Test sırasında sunucunun gerçek bir port açmaması
 
 ## Production Build
@@ -205,9 +267,27 @@ Frontend build:
 npm --prefix client run build
 ```
 
+Tüm kontrolleri sırasıyla çalıştırmak için:
+
+```bash
+npm --prefix server run test
+npm --prefix server run build
+npm --prefix client run build
+```
+
+## Sürekli Entegrasyon
+
+`.github/workflows/ci.yml` dosyasındaki GitHub Actions iş akışı, `main` dalına gönderilen değişikliklerde ve Pull Request’lerde aşağıdaki kontrolleri otomatik çalıştırır:
+
+- Backend bağımlılıklarının kurulması
+- Backend testleri
+- Backend production build
+- Frontend bağımlılıklarının kurulması
+- Frontend production build
+
 ## Geliştirme Durumu
 
-Tamamlanan bölümler:
+### Tamamlanan bölümler
 
 - Belge yükleme ve doğrulama
 - PDF, DOCX ve TXT metin çıkarma
@@ -215,20 +295,25 @@ Tamamlanan bölümler:
 - PostgreSQL veri saklama
 - Belge listeleme ve silme
 - Belge detay ve kaynak sayfası görünümü
-- Sohbet arayüzü
-- Canlı backend durum göstergesi
-- Veritabanı migration dosyası
-- Temel backend testleri
-
-Planlanan bölümler:
-
 - MiniMax M3 API entegrasyonu
-- Belge parçaları için embedding oluşturma
-- pgvector ile benzerlik araması
-- Kaynaklı soru-cevap sistemi
-- Sorgu geçmişinin kaydedilmesi
-- Hata yönetimi ve ek testler
-- Uygulamanın yayınlanması
+- MiniMax bağlantı kontrolü
+- Kaynaklı doküman soru-cevap sistemi
+- Soru-cevap geçmişinin veritabanına kaydedilmesi
+- Son 20 sorgunun arayüzde gösterilmesi
+- Sorgu geçmişinin otomatik yenilenmesi
+- Veritabanı migration dosyası
+- Backend API testleri
+- GitHub Actions CI iş akışı
+- Bağımlılık güvenlik güncellemeleri
+
+### Planlanan bölümler
+
+- Daha kapsamlı API ve veritabanı testleri
+- İlgisiz sorular için daha güçlü kaynak filtreleme
+- Güvenli bir embedding çözümü
+- pgvector ile semantik benzerlik araması
+- Production ortam değişkenlerinin yapılandırılması
+- Frontend ve backend uygulamasının yayınlanması
 
 ## Güvenlik
 
@@ -236,3 +321,5 @@ Planlanan bölümler:
 - API anahtarlarını frontend koduna yazmayın.
 - API anahtarlarını ekran görüntülerinde veya mesajlarda paylaşmayın.
 - Gerçek anahtarları yalnızca backend ortam değişkenlerinde saklayın.
+- Hassas dosyaları commit etmeden önce `git status` ile kontrol edin.
+- Bağımlılıkları düzenli olarak `npm audit` ile denetleyin.
