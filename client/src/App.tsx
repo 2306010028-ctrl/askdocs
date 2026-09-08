@@ -64,7 +64,7 @@ function App() {
   const [error, setError] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0) 
   useEffect(() => {
     let cancelled = false
 
@@ -432,8 +432,13 @@ function App() {
         </article>
       </section>
 
-      <ChatPanel />
-      <QueryHistory />
+      <ChatPanel
+          onAnswerCreated={() => {
+           setHistoryRefreshKey((currentKey) => currentKey + 1)
+          }}
+       />
+
+<QueryHistory refreshKey={historyRefreshKey} />
       {detailsDocumentId && (
         <DocumentDetails
           documentId={detailsDocumentId}

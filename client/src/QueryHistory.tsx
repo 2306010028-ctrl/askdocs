@@ -18,6 +18,10 @@ type QueriesResponse = {
   message?: string
 }
 
+type QueryHistoryProps = {
+  refreshKey: number
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('tr-TR', {
     dateStyle: 'medium',
@@ -25,7 +29,7 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
-function QueryHistory() {
+function QueryHistory({ refreshKey }: QueryHistoryProps) {
   const [queries, setQueries] = useState<QueryRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +62,7 @@ function QueryHistory() {
 
   useEffect(() => {
     void loadQueries()
-  }, [loadQueries])
+  }, [loadQueries, refreshKey])
 
   return (
     <section className="query-history">
@@ -108,8 +112,9 @@ function QueryHistory() {
                 <strong>{query.question}</strong>
 
                 <p>
-                  {query.response ??
-                    'Bu sorgu için cevap kaydedilmedi.'}
+                  {query.response
+                    ? query.response.replaceAll('**', '')
+                    : 'Bu sorgu için cevap kaydedilmedi.'}
                 </p>
 
                 <div className="query-history-meta">
