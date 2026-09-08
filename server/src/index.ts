@@ -11,6 +11,10 @@ import {
   UploadValidationError,
 } from "./upload.js";
 import { processDocument } from "./processDocument.js";
+import {
+  checkMiniMaxConnection,
+  isMiniMaxConfigured,
+} from "./minimax.js";
 
 export const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -43,6 +47,34 @@ app.get("/api/health/db", async (_request, response) => {
     response.status(503).json({
       status: "error",
       message: "Veritabanına bağlanılamadı.",
+    });
+  }
+});
+// MiniMax API bağlantı kontrolü
+app.get("/api/health/ai", async (_request, response) => {
+  if (!isMiniMaxConfigured()) {
+    response.status(503).json({
+      status: "error",
+      message: "MiniMax API anahtarı tanımlanmamış.",
+    });
+    return;
+  }
+
+  try {
+    const result = await checkMiniMaxConnection();
+
+    response.json({
+      status: "ok",
+      provider: "MiniMax",
+      model: result.model,
+      response: result.response,
+    });
+  } catch (error) {
+    console.error("MiniMax bağlantı hatası:", error);
+
+    response.status(503).json({
+      status: "error",
+      message: "MiniMax API bağlantısı kurulamadı.",
     });
   }
 });
