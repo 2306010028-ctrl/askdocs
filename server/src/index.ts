@@ -13,7 +13,9 @@ import {
 import { processDocument } from "./processDocument.js";
 import {
   checkMiniMaxConnection,
+  generateDocumentAnswer,
   isMiniMaxConfigured,
+  type DocumentSource,
 } from "./minimax.js";
 
 export const app = express();
@@ -76,6 +78,123 @@ app.get("/api/health/ai", async (_request, response) => {
       status: "error",
       message: "MiniMax API bağlantısı kurulamadı.",
     });
+  }
+});
+
+// Doküman parçalarını kullanarak soruyu yanıtla
+app.post("/api/questions", async (request, response, next) => {
+  const question =
+    typeof request.body.question === "string"
+      ? request.body.question.trim()
+      : "";
+
+  if (question.length < 3) {
+    response.status(400).json({
+      message: "Soru en az 3 karakter olmalıdır.",
+    });
+    return;
+  }
+
+  if (question.length > 1000) {
+    response.status(400).json({
+      message: "Soru en fazla 1000 karakter olabilir.",
+    });
+    return;
+  }
+
+  if (!isMiniMaxConfigured()) {
+    response.status(503).json({
+      message: "MiniMax API bağlantısı yapılandırılmamış.",
+    });
+    return;
+  }
+
+  const startedAt = Date.now();
+
+  try {
+    const chunksResult = await pool.query(
+      `SELECT
+        dc.id,
+        dc.content,
+        dc.source_page,
+        d.filename,
+        ts_rank_cd(
+          to_tsvector('simple', dc.content),
+          plainto_tsquery('simple', $1)
+        ) AS relevance
+       FROM document_chunks dc
+       INNER JOIN documents d
+         ON d.id = dc.document_id
+       ORDER BY
+         relevance DESC,
+         d.created_at DESC,
+         dc.chunk_index ASC
+       LIMIT 6`,
+      [question]
+    );
+
+    const sources: DocumentSource[] =
+      chunksResult.rows.map((row) => ({
+        id: row.id,
+        filename: row.filename,
+        content: row.content,
+        sourcePage: row.source_page,
+      }));
+
+    if (sources.length === 0) {
+      response.status(400).json({
+        message:
+          "Soru yanıtlanmadan önce en az bir doküman yükleyin.",
+      });
+      return;
+    }
+
+    const result = await generateDocumentAnswer(
+      question,
+      sources
+    );
+
+    const responseTimeMs = Date.now() - startedAt;
+
+    try {
+      await pool.query(
+        `INSERT INTO query_logs
+          (
+            question,
+            chunk_ids,
+            response,
+            response_time_ms,
+            token_count
+          )
+         VALUES ($1, $2::uuid[], $3, $4, $5)`,
+        [
+          question,
+          sources.map((source) => source.id),
+          result.answer,
+          responseTimeMs,
+          result.tokenCount,
+        ]
+      );
+    } catch (logError) {
+      console.error(
+        "Sorgu geçmişi kaydedilemedi:",
+        logError
+      );
+    }
+
+    response.json({
+      answer: result.answer,
+      model: result.model,
+      response_time_ms: responseTimeMs,
+      token_count: result.tokenCount,
+      sources: sources.map((source) => ({
+        chunk_id: source.id,
+        filename: source.filename,
+        source_page: source.sourcePage,
+      })),
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
