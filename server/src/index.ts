@@ -197,7 +197,29 @@ app.post("/api/questions", async (request, response, next) => {
     next(error);
   }
 });
+// Son soru-cevap kayıtlarını listele
+app.get("/api/queries", async (_request, response, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        question,
+        response,
+        response_time_ms,
+        token_count,
+        created_at
+       FROM query_logs
+       ORDER BY created_at DESC
+       LIMIT 20`
+    );
 
+    response.json({
+      queries: result.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 // Yüklenen dokümanları listele
 app.get("/api/documents", async (_request, response, next) => {
   try {

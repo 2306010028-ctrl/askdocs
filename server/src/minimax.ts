@@ -96,6 +96,7 @@ export async function generateDocumentAnswer(
       "Bilgi uydurma ve dışarıdan bilgi ekleme.",
       "Kullandığın bilgilerin sonunda [Kaynak 1] biçiminde kaynak göster.",
       "Cevabı açık, anlaşılır ve mümkün olduğunca kısa tut.",
+      "Markdown biçimlendirme işaretleri kullanma.",
     ].join(" "),
     messages: [
       {
