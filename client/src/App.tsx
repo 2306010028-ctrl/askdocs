@@ -4,6 +4,7 @@ import './App.css'
 import DocumentDetails from './DocumentDetails'
 import ApiStatus from './ApiStatus'
 import ChatPanel from './ChatPanel'
+import QueryHistory from './QueryHistory'
 
 const API_URL =
   import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3001'
@@ -432,6 +433,7 @@ function App() {
       </section>
 
       <ChatPanel />
+      <QueryHistory />
       {detailsDocumentId && (
         <DocumentDetails
           documentId={detailsDocumentId}

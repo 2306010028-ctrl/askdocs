@@ -133,7 +133,9 @@ function ChatPanel() {
                 </div>
               </div>
 
-              <p className="answer-text">{answer}</p>
+              <p className="answer-text">
+                 {answer.replaceAll('**', '')}
+                </p>
 
               {responseTime !== null && (
                 <span className="answer-time">
