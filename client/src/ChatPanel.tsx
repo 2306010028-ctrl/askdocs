@@ -26,7 +26,11 @@ type QuestionResponse = {
   message?: string
 }
 
-function ChatPanel() {
+type ChatPanelProps = {
+  onAnswerCreated: () => void
+}
+
+function ChatPanel({ onAnswerCreated }: ChatPanelProps) {
   const [question, setQuestion] = useState('')
   const [lastQuestion, setLastQuestion] = useState('')
   const [answer, setAnswer] = useState('')
@@ -83,6 +87,7 @@ function ChatPanel() {
       setSources(data.sources ?? [])
       setResponseTime(data.response_time_ms ?? null)
       setQuestion('')
+      onAnswerCreated()
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -134,8 +139,8 @@ function ChatPanel() {
               </div>
 
               <p className="answer-text">
-                 {answer.replaceAll('**', '')}
-                </p>
+                {answer.replaceAll('**', '')}
+              </p>
 
               {responseTime !== null && (
                 <span className="answer-time">
@@ -191,6 +196,7 @@ function ChatPanel() {
 
                     <div>
                       <strong>{source.filename}</strong>
+
                       <p>
                         {source.source_page === null
                           ? 'Sayfa bilgisi yok'
@@ -209,6 +215,7 @@ function ChatPanel() {
 
               <div className="source-step">
                 <span>1</span>
+
                 <div>
                   <strong>Soru analiz edilir</strong>
                   <p>Sorunun içeriği değerlendirilir.</p>
@@ -217,8 +224,10 @@ function ChatPanel() {
 
               <div className="source-step">
                 <span>2</span>
+
                 <div>
                   <strong>Kaynaklar bulunur</strong>
+
                   <p>
                     En alakalı doküman parçaları seçilir.
                   </p>
@@ -227,8 +236,10 @@ function ChatPanel() {
 
               <div className="source-step">
                 <span>3</span>
+
                 <div>
                   <strong>Yanıt oluşturulur</strong>
+
                   <p>
                     Cevap, belge ve sayfa bilgisiyle sunulur.
                   </p>
